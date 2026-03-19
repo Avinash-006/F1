@@ -1,0 +1,98 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: ⚡ Install Expo CLI
+        run: npm install -g expo-cli
+
+      # 🔥 Generate ios folder if not present
+      - name: 📱 Prebuild iOS
+        run: |
+          npx expo prebuild --platform ios --no-install || echo "iOS folder exists"
+
+      # 📦 Install CocoaPods
+      - name: 📦 Install Pods
+        run: |
+          cd ios
+          pod install
+
+      # 🔥 Bundle JS (NO METRO REQUIRED)
+      - name: 📦 Bundle React Native JS
+        run: |
+          npx react-native bundle \
+            --platform ios \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output ios/main.jsbundle \
+            --assets-dest ios
+
+      # 🏗️ Detect scheme automatically
+      - name: 🔍 Detect Xcode Scheme
+        id: scheme
+        run: |
+          SCHEME=$(ls ios | grep .xcodeproj | sed 's/.xcodeproj//')
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+
+      # 🏗️ Build archive WITHOUT signing
+      - name: 🏗️ Build Archive (No Signing)
+        run: |
+          xcodebuild \
+            -workspace ios/*.xcworkspace \
+            -scheme ${{ steps.scheme.outputs.scheme }} \
+            -configuration Release \
+            -archivePath ios/build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      # 🔥 Create exportOptions.plist dynamically
+      - name: 📝 Create exportOptions.plist
+        run: |
+          cat <<EOF > ios/exportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+
+      # 📦 Export IPA (unsigned)
+      - name: 📦 Export IPA
+        run: |
+          mkdir -p ios/build/ipa
+
+          xcodebuild -exportArchive \
+            -archivePath ios/build/App.xcarchive \
+            -exportOptionsPlist ios/exportOptions.plist \
+            -exportPath ios/build/ipa \
+            CODE_SIGNING_ALLOWED=NO
+
+      # 📤 Upload IPA
+      - name: 📤 Upload IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: unsigned-ipa
+          path: ios/build/ipa/*.ipa
