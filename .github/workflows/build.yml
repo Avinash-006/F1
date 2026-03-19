@@ -20,30 +20,26 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
-      # 🔥 FIX ALL RN CLI + METRO ISSUES
-      - name: 🔧 Fix React Native environment
+      # ✅ ONLY install CLI (no metro hacks)
+      - name: 🔧 Fix React Native CLI
         run: |
           npm install @react-native-community/cli
-          npm install @react-native/metro-config
-          npm install metro metro-config metro-react-native-babel-preset
           npm install -g react-native-cli
 
-      # 🔥 Install Expo CLI
+      # ✅ Expo prebuild
       - name: ⚡ Install Expo CLI
         run: npm install -g expo-cli
 
-      # 🔥 Generate ios folder
       - name: 📱 Prebuild iOS
         run: |
           npx expo prebuild --platform ios --no-install || echo "iOS exists"
 
-      # 📦 Install CocoaPods
       - name: 📦 Install Pods
         run: |
           cd ios
           pod install
 
-      # 🔥 Bundle JS (NO METRO SERVER)
+      # 🔥 CLEAN BUNDLE (no broken metro installs)
       - name: 📦 Bundle React Native JS
         run: |
           npx react-native bundle \
@@ -60,7 +56,7 @@ jobs:
           SCHEME=$(ls ios | grep .xcodeproj | sed 's/.xcodeproj//')
           echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
 
-      # 🏗️ Build archive WITHOUT signing
+      # 🏗️ Build archive
       - name: 🏗️ Build Archive
         run: |
           xcodebuild \
@@ -71,7 +67,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive
 
-      # 📝 Create exportOptions.plist
+      # 📝 Create plist
       - name: 📝 Create exportOptions.plist
         run: |
           cat <<EOF > ios/exportOptions.plist
@@ -82,8 +78,6 @@ jobs:
           <dict>
               <key>method</key>
               <string>development</string>
-              <key>signingStyle</key>
-              <string>manual</string>
           </dict>
           </plist>
           EOF
