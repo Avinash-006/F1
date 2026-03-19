@@ -10,23 +10,30 @@ jobs:
 
     steps:
       - name: 📥 Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 🟢 Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
       - name: 📦 Install dependencies
         run: npm install
 
+      # 🔥 Fix React Native CLI issue
+      - name: 🔧 Fix React Native CLI
+        run: |
+          npm install @react-native-community/cli
+          npm install -g react-native-cli
+
+      # 🔥 Install Expo CLI (for prebuild)
       - name: ⚡ Install Expo CLI
         run: npm install -g expo-cli
 
-      # 🔥 Generate ios folder if not present
+      # 🔥 Generate ios folder
       - name: 📱 Prebuild iOS
         run: |
-          npx expo prebuild --platform ios --no-install || echo "iOS folder exists"
+          npx expo prebuild --platform ios --no-install || echo "iOS exists"
 
       # 📦 Install CocoaPods
       - name: 📦 Install Pods
@@ -34,17 +41,17 @@ jobs:
           cd ios
           pod install
 
-      # 🔥 Bundle JS (NO METRO REQUIRED)
+      # 🔥 Bundle JS (NO METRO)
       - name: 📦 Bundle React Native JS
         run: |
-          npx react-native bundle \
+          npx react-native-cli bundle \
             --platform ios \
             --dev false \
             --entry-file index.js \
             --bundle-output ios/main.jsbundle \
             --assets-dest ios
 
-      # 🏗️ Detect scheme automatically
+      # 🔍 Detect scheme automatically
       - name: 🔍 Detect Xcode Scheme
         id: scheme
         run: |
@@ -62,7 +69,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive
 
-      # 🔥 Create exportOptions.plist dynamically
+      # 📝 Create exportOptions.plist dynamically
       - name: 📝 Create exportOptions.plist
         run: |
           cat <<EOF > ios/exportOptions.plist
@@ -90,7 +97,7 @@ jobs:
             -exportPath ios/build/ipa \
             CODE_SIGNING_ALLOWED=NO
 
-      # 📤 Upload IPA
+      # 📤 Upload IPA (FIXED v4)
       - name: 📤 Upload IPA
         uses: actions/upload-artifact@v4
         with:
