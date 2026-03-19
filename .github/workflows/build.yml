@@ -20,13 +20,15 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
-      # 🔥 Fix React Native CLI issue
-      - name: 🔧 Fix React Native CLI
+      # 🔥 FIX ALL RN CLI + METRO ISSUES
+      - name: 🔧 Fix React Native environment
         run: |
           npm install @react-native-community/cli
+          npm install @react-native/metro-config
+          npm install metro metro-config metro-react-native-babel-preset
           npm install -g react-native-cli
 
-      # 🔥 Install Expo CLI (for prebuild)
+      # 🔥 Install Expo CLI
       - name: ⚡ Install Expo CLI
         run: npm install -g expo-cli
 
@@ -41,17 +43,17 @@ jobs:
           cd ios
           pod install
 
-      # 🔥 Bundle JS (NO METRO)
+      # 🔥 Bundle JS (NO METRO SERVER)
       - name: 📦 Bundle React Native JS
         run: |
-          npx react-native-cli bundle \
+          npx react-native bundle \
             --platform ios \
             --dev false \
             --entry-file index.js \
             --bundle-output ios/main.jsbundle \
             --assets-dest ios
 
-      # 🔍 Detect scheme automatically
+      # 🔍 Detect scheme
       - name: 🔍 Detect Xcode Scheme
         id: scheme
         run: |
@@ -59,7 +61,7 @@ jobs:
           echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
 
       # 🏗️ Build archive WITHOUT signing
-      - name: 🏗️ Build Archive (No Signing)
+      - name: 🏗️ Build Archive
         run: |
           xcodebuild \
             -workspace ios/*.xcworkspace \
@@ -69,7 +71,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive
 
-      # 📝 Create exportOptions.plist dynamically
+      # 📝 Create exportOptions.plist
       - name: 📝 Create exportOptions.plist
         run: |
           cat <<EOF > ios/exportOptions.plist
@@ -86,7 +88,7 @@ jobs:
           </plist>
           EOF
 
-      # 📦 Export IPA (unsigned)
+      # 📦 Export IPA
       - name: 📦 Export IPA
         run: |
           mkdir -p ios/build/ipa
@@ -97,7 +99,7 @@ jobs:
             -exportPath ios/build/ipa \
             CODE_SIGNING_ALLOWED=NO
 
-      # 📤 Upload IPA (FIXED v4)
+      # 📤 Upload IPA
       - name: 📤 Upload IPA
         uses: actions/upload-artifact@v4
         with:
