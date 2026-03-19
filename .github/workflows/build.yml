@@ -20,43 +20,30 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
-      # ✅ ONLY install CLI (no metro hacks)
-      - name: 🔧 Fix React Native CLI
-        run: |
-          npm install @react-native-community/cli
-          npm install -g react-native-cli
+      # ✅ Install Expo CLI (modern way)
+      - name: ⚡ Setup Expo
+        run: npx expo --version
 
-      # ✅ Expo prebuild
-      - name: ⚡ Install Expo CLI
-        run: npm install -g expo-cli
-
+      # ✅ Generate iOS project
       - name: 📱 Prebuild iOS
         run: |
-          npx expo prebuild --platform ios --no-install || echo "iOS exists"
+          npx expo prebuild --platform ios --no-install
 
+      # ✅ Install CocoaPods
       - name: 📦 Install Pods
         run: |
           cd ios
           pod install
+          cd ..
 
-      # 🔥 CLEAN BUNDLE (no broken metro installs)
-      - name: 📦 Bundle React Native JS
-        run: |
-          npx react-native bundle \
-            --platform ios \
-            --dev false \
-            --entry-file index.js \
-            --bundle-output ios/main.jsbundle \
-            --assets-dest ios
-
-      # 🔍 Detect scheme
+      # 🔍 Detect scheme automatically
       - name: 🔍 Detect Xcode Scheme
         id: scheme
         run: |
           SCHEME=$(ls ios | grep .xcodeproj | sed 's/.xcodeproj//')
           echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
 
-      # 🏗️ Build archive
+      # 🏗️ Build archive (Expo handles bundling internally)
       - name: 🏗️ Build Archive
         run: |
           xcodebuild \
@@ -67,7 +54,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive
 
-      # 📝 Create plist
+      # 📝 Create exportOptions.plist
       - name: 📝 Create exportOptions.plist
         run: |
           cat <<EOF > ios/exportOptions.plist
@@ -86,7 +73,6 @@ jobs:
       - name: 📦 Export IPA
         run: |
           mkdir -p ios/build/ipa
-
           xcodebuild -exportArchive \
             -archivePath ios/build/App.xcarchive \
             -exportOptionsPlist ios/exportOptions.plist \
