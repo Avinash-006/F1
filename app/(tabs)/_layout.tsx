@@ -1,7 +1,22 @@
 import { Tabs } from "expo-router";
-import { View, Text, StyleSheet, Platform, Animated, Pressable, Easing } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Animated,
+  Pressable,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRef, useEffect, memo } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ACCENT = "#E10600";
+const TAB_CONTENT_HEIGHT = 64;
+
+// ─── MD3 colours ─────────────────────────────────────────────────────────────
+const MD3_SURFACE_CONTAINER = "#2B2930";
+const MD3_ON_SURFACE_VARIANT = "#CAC4D0";
+const MD3_ON_SURFACE = "#E6E1E5";
+const MD3_INDICATOR = "rgba(225, 6, 0, 0.18)";
 
 type TabIconProps = {
   focused: boolean;
@@ -9,28 +24,31 @@ type TabIconProps = {
   label: string;
 };
 
+// ─── MD3 Animated Tab Icon ───────────────────────────────────────────────────
 const TabIcon = memo(({ focused, icon, label }: TabIconProps) => {
-  const animated = useRef({
-    scale: new Animated.Value(1),
-    translateY: new Animated.Value(0),
-    opacity: new Animated.Value(0.5),
-  }).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0.5)).current;
+  const pillOpacity = useRef(new Animated.Value(0)).current;
+  const pillScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(animated.scale, {
-        toValue: focused ? 1.2 : 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.timing(animated.translateY, {
-        toValue: focused ? -2 : 0,
-        duration: 200,
+      Animated.spring(scaleAnim, {
+        toValue: focused ? 1.15 : 1,
         useNativeDriver: true,
       }),
-      Animated.timing(animated.opacity, {
-        toValue: focused ? 1 : 0.5,
-        duration: 200,
+      Animated.timing(opacityAnim, {
+        toValue: focused ? 1 : 0.6,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pillScale, {
+        toValue: focused ? 1 : 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pillOpacity, {
+        toValue: focused ? 1 : 0,
+        duration: 150,
         useNativeDriver: true,
       }),
     ]).start();
@@ -38,30 +56,53 @@ const TabIcon = memo(({ focused, icon, label }: TabIconProps) => {
 
   return (
     <View style={styles.tabItem}>
-      <Animated.View style={{ 
-        transform: [{ scale: animated.scale }, { translateY: animated.translateY }],
-        opacity: animated.opacity
-      }}>
+      {/* MD3 Indicator */}
+      <Animated.View
+        style={[
+          styles.indicator,
+          { opacity: pillOpacity, transform: [{ scaleX: pillScale }] },
+        ]}
+      />
+
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], zIndex: 1 }}>
         <MaterialCommunityIcons
           name={icon}
           size={24}
-          color={focused ? "#E10600" : "#888"}
-          style={focused ? styles.activeGlow : null}
+          color={focused ? ACCENT : MD3_ON_SURFACE_VARIANT}
         />
       </Animated.View>
-      <Animated.Text style={[
-        styles.tabLabel, 
-        { color: focused ? "#fff" : "#888", opacity: animated.opacity }
-      ]}>
+
+      <Animated.Text
+        style={[
+          styles.label,
+          {
+            color: focused ? MD3_ON_SURFACE : MD3_ON_SURFACE_VARIANT,
+            opacity: opacityAnim,
+            fontWeight: focused ? "600" : "400",
+          },
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Animated.Text>
     </View>
   );
 });
 
+// ─── Custom Tab Bar (MD3 for all platforms) ───────────────────────────────────
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.tabBarContainer}>
+    <View
+      style={[
+        styles.container,
+        {
+          height: TAB_CONTENT_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <View style={styles.tabBar}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
@@ -73,6 +114,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               target: route.key,
               canPreventDefault: true,
             });
+
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
@@ -82,10 +124,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             <Pressable
               key={route.key}
               onPress={onPress}
-              style={styles.tabPressable}
+              style={styles.pressable}
+              android_ripple={{
+                color: "rgba(225, 6, 0, 0.12)",
+                borderless: true,
+              }}
             >
               {options.tabBarIcon?.({ focused: isFocused })}
-              {isFocused && <View style={styles.activeIndicator} />}
             </Pressable>
           );
         })}
@@ -94,6 +139,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   );
 }
 
+// ─── Layout ───────────────────────────────────────────────────────────────────
 export default function TabsLayout() {
   const tabs = [
     { name: "home", icon: "home-variant", label: "Home" },
@@ -122,47 +168,41 @@ export default function TabsLayout() {
   );
 }
 
+// ─── Styles (MD3 only) ────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  tabBarContainer: {
-    backgroundColor: "#0d0d0d", // Match your app background
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
-    paddingBottom: Platform.OS === "ios" ? 30 : 10, // Handle safe area
-    height: Platform.OS === "ios" ? 90 : 70,
+  container: {
+    backgroundColor: MD3_SURFACE_CONTAINER,
+    elevation: 8,
   },
   tabBar: {
+    height: TAB_CONTENT_HEIGHT,
     flexDirection: "row",
-    height: "100%",
     alignItems: "center",
   },
-  tabPressable: {
+  pressable: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    height: "100%",
   },
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 4,
+    minWidth: 64,
+    position: "relative",
   },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: "700",
+  indicator: {
+    position: "absolute",
+    top: 2,
+    width: 64,
+    height: 32,
+    backgroundColor: MD3_INDICATOR,
+    borderRadius: 16,
+  },
+  label: {
+    fontSize: 12,
     marginTop: 4,
     letterSpacing: 0.5,
-    textTransform: 'uppercase'
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    width: 20,
-    height: 3,
-    backgroundColor: '#E10600',
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-  },
-  activeGlow: {
-    textShadowColor: "rgba(225, 6, 0, 0.6)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
   },
 });
